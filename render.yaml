@@ -1,23 +1,23 @@
 services:
-  - type: web
-    name: invoice-ocr-backend
-    env: node
-    plan: free
-    buildCommand: npm install
-    startCommand: node backend/server.js
-    envVars:
-      - key: NODE_VERSION
-        value: 20.0.0
-      - key: JWT_SECRET
-        generateValue: true
-      - key: DATABASE_URL
-        fromDatabase:
-          name: invoice-db
-          property: connectionString
-      - key: GOOGLE_CLIENT_ID
-        sync: false
+- type: web
+  name: invoice-ocr-backend
+  env: node
+  plan: free
+  rootDir: backend
+  buildCommand: npm install
+  startCommand: node server.js
+  envVars:
+  - key: NODE_VERSION
+    value: 18.0.0
+  - key: JWT_SECRET
+    generateValue: true
+  - key: DATABASE_URL
+    fromDatabase:
+      name: invoice-db
+      property: connectionString
+  - key: GOOGLE_CLIENT_ID
+    sync: false
 
 databases:
-  - name: invoice-db
-    plan: free
-    postgresVersion: "15"
+- name: invoice-db
+  plan: free

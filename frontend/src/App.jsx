@@ -111,7 +111,13 @@ function AppContent() {
                 ) : (
                   <div className="user-initials-small">{user.name?.charAt(0)}</div>
                 )}
-                <span className="user-name-header">{user.name}</span>
+                <div className="user-info-stack">
+                  <span className="user-name-header">{user.name}</span>
+                  <div className="pro-sub-label">
+                    <Zap size={8} fill="currentColor" />
+                    PRO ACCOUNT
+                  </div>
+                </div>
               </div>
             )}
             <div className="pro-badge">

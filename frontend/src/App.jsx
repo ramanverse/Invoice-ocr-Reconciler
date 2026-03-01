@@ -120,10 +120,6 @@ function AppContent() {
                 </div>
               </div>
             )}
-            <div className="pro-badge">
-              <Zap size={14} fill="white" />
-              PRO OCR ACTIVE
-            </div>
           </div>
         </header>
 

@@ -27,23 +27,23 @@ export const AuthProvider = ({ children }) => {
 
     const login = async (email, password) => {
         const res = await api.post('/auth/login', { email, password });
-        localStorage.setItem('token', res.data.token);
-        setUser(res.data);
-        return res.data;
+        localStorage.setItem('token', res.token);
+        setUser(res.user || res);
+        return res;
     };
 
     const register = async (name, email, password) => {
         const res = await api.post('/auth/register', { name, email, password });
-        localStorage.setItem('token', res.data.token);
-        setUser(res.data);
-        return res.data;
+        localStorage.setItem('token', res.token);
+        setUser(res.user || res);
+        return res;
     };
 
     const googleLogin = async (googleToken) => {
         const res = await api.post('/auth/google', { token: googleToken });
-        localStorage.setItem('token', res.data.token);
-        setUser(res.data);
-        return res.data;
+        localStorage.setItem('token', res.token);
+        setUser(res.user || res);
+        return res;
     };
 
     const logout = () => {

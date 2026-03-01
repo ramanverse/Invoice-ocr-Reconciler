@@ -59,180 +59,81 @@ Local OCR + Rule-based Structured Extraction + Fuzzy Matching Reconciliation Eng
 
 ## 4. System Architecture
 
-### High-Level Flow
-User → Desktop App (Frontend) → OCR Engine (Tesseract.js) → Invoice Parser → Reconciliation Engine → Report Generator → User
+### High-Level Workflow
+`User` → `Frontend (React)` → `OCR (Tesseract.js)` → `Invoice Parser` → `Reconciliation Engine` → `Dashboard/Reports`
 
-### Architecture Description
-The frontend handles file upload and UI rendering. Uploaded files are passed to the OCR Engine (Tesseract.js) which extracts raw text from the document. The Invoice Parser applies regex and heuristics to convert raw text into structured invoice fields. The Reconciliation Engine loads the expected payment register and performs fuzzy matching against extracted invoices. Results are displayed in a dashboard and can be exported as reports.
-
----
-
-## 5. Database Design
-
-### ER Diagram
-(Add system architecture diagram image here)
-
-### ER Diagram Description
-- **Invoice** — InvoiceID, VendorName, InvoiceNumber, Date, Subtotal, Tax, TotalAmount, FilePath, Status
-- **LineItem** — ItemID, InvoiceID (FK), Description, Quantity, UnitPrice, Amount
-- **PaymentRecord** — RecordID, VendorName, ExpectedAmount, DueDate, Status, ReferenceNumber
-- **ReconciliationResult** — ResultID, InvoiceID (FK), RecordID (FK), MatchStatus, Discrepancy, FlagReason
+### Component Description
+- **Frontend**: Handles multi-file uploads, UI state management, and real-time reconciliation visualization.
+- **Backend (Node.js/Express)**: Manages local file storage, database operations, and environment-specific configurations.
+- **OCR Engine**: Utilizes Tesseract.js for client-side/server-side text extraction from images and PDFs.
+- **Reconciliation Engine**: Implements `Fuse.js` for fuzzy string matching and heuristic-based anomaly detection.
 
 ---
 
-## 6. Dataset Selected
+## 5. Database Schema
 
-### Dataset Name
-Synthetic Invoice Dataset + Public Invoice Samples
+The system uses **SQLite** for local development and **PostgreSQL** for cloud production.
 
-### Source
-- Kaggle: Invoice OCR datasets
-- Self-generated synthetic invoices using invoice template generators
-- Open-source sample PDFs from GitHub repositories
-
-### Data Type
-Scanned PDF invoices, PNG/JPG invoice images, structured CSV payment registers
-
-### Selection Reason
-Variable invoice formats — different layouts, fonts, and structures — are needed to stress-test both OCR extraction accuracy and the robustness of the invoice parser.
-
-### Preprocessing Steps
-- Convert PDF pages to images using pdf2image / pdfjs
-- Resize and denoise images to improve OCR accuracy
-- Annotate ground-truth fields for model evaluation
-- Normalize vendor names and currency formats for consistent matching
+### Core Entities
+- **Users**: Authentication data (Local & Google OAuth).
+- **Invoices**: Extracted header data (Vendor, Amount, Date, etc.).
+- **LineItems**: Granular product/service data from invoices.
+- **ReconciliationResults**: Match statuses, discrepancies, and flag reasons.
+- **ReconciliationSessions**: History and summary metrics of reconciliation runs.
 
 ---
 
-## 7. Model Selected
+## 6. Technology Stack
 
-### Model Name
-Tesseract.js (OCR Engine) + Regex / Heuristic Parser (Field Extraction) + Fuse.js (Fuzzy String Matching)
-
-### Selection Reasoning
-- Tesseract.js runs fully in-browser or in Node.js with no external API calls, preserving user privacy
-- Regex + Heuristics are fast, interpretable, and effective for well-defined invoice fields
-- Fuse.js handles OCR typos and vendor name variations through fuzzy matching
-
-### Alternatives Considered
-- **Google Vision API** — Rejected due to cloud dependency and privacy risk
-- **PaddleOCR** — Considered but requires a Python backend, increasing setup complexity
-- **LayoutLM** — Considered for future scope; too heavy for the current MVP
-
-### Evaluation Metrics
-- Field extraction accuracy per field (vendor, amount, date, invoice number)
-- Reconciliation match rate
-- False positive and false negative rate for flagged mismatches
-- Processing time per invoice
+- **Core**: React.js, Node.js, Express.js
+- **Styling**: Premium Dark Red (Charcoal & Crimson) with Outfit geometric typography
+- **OCR**: Tesseract.js
+- **Storage**: SQLite (Local), PostgreSQL (Cloud/Render)
+- **Matching**: Fuse.js (Fuzzy Matching)
+- **Deployment**: Vercel (Frontend), Render (Backend)
 
 ---
 
-## 8. Technology Stack
+## 7. Documentation
 
-- **Frontend**: React.js + Vanilla CSS (Redesigned with Premium Dark Red theme)
-- **Backend**: Node.js + Express
-- **ML/AI**: Tesseract.js (OCR), Fuse.js (fuzzy matching), custom regex-based invoice parser
-- **Database**: SQLite (local desktop)
-- **Deployment**: Electron (desktop app packaging) or localhost web server — fully offline
+All detailed project documentation is centralized in the `docs/` directory:
 
----
-
-## 9. Documentation
-
-For more detailed information, please refer to the following documents in the `docs/` directory:
-- [How to Run](file:///Users/ramanthakur/Desktop/Invoice-ocr-Reconciler/docs/how_to_run.md) — Step-by-step setup and execution guide.
-- [Project Report](file:///Users/ramanthakur/Desktop/Invoice-ocr-Reconciler/docs/project_report.html) — Technical overview and design justifications.
+- 🚀 [**How to Run**](docs/how_to_run.md): Step-by-step setup for local development.
+- 📊 [**Project Report**](docs/project_report.html): Comprehensive technical overview and system design choices.
 
 ---
 
-## 10. API Documentation & Testing
+## 8. Development Progress
 
-### API Endpoints List
-- `POST /api/upload` — Upload an invoice file (PDF or image); returns extracted invoice data as JSON
-- `POST /api/reconcile` — Upload a payment register CSV; returns reconciliation report as JSON
-- `GET /api/invoices` — Retrieve all extracted invoices stored in the local database
-- `GET /api/report/:id` — Fetch a specific reconciliation report by its ID
-- `DELETE /api/invoice/:id` — Delete an invoice record from the local database
+### Checkpoint 1: Initialization 🏁
+- Problem statement and architecture design complete.
+- Repository structure established with `docs/` centralization.
 
----
+### Checkpoint 2: Authentication & Security 🔐
+- Manual email/password and Google OAuth integration.
+- Secured API endpoints with JWT.
 
-## 10. Module-wise Development & Deliverables
+### Checkpoint 3: OCR & Parsing 📄
+- Tesseract.js integration for PDF/image processing.
+- Regex and heuristic-based invoice data extraction.
 
-### Checkpoint 1: Research & Planning
-**Deliverables**: Problem statement, system architecture diagram, ER diagram, tech stack finalization, README
+### Checkpoint 4: Reconciliation Engine 🧠
+- Fuzzy matching implementation for high-accuracy reconciliation.
+- Anomaly flagging for mismatches and missing records.
 
-### Checkpoint 2: Backend Development
-**Deliverables**: Node.js + Express server setup, SQLite schema, file upload API, invoice storage module
-
-### Checkpoint 3: Frontend Development
-**Deliverables**: React UI — file upload screen, invoice list view, reconciliation dashboard, report export UI
-
-### Checkpoint 4: OCR & Model Integration
-**Deliverables**: Tesseract.js integration, regex-based invoice parser, field extraction accuracy evaluation
-
-### Checkpoint 5: Reconciliation Engine Integration
-**Deliverables**: Fuse.js fuzzy matching logic, mismatch/duplicate/missing invoice detection, flag labeling
-
-### Checkpoint 6: Deployment
-**Deliverables**: Electron packaging or localhost app, end-to-end testing, CSV/PDF report export, final demo
+### Checkpoint 5: Professional UI/UX ✨
+- Modern Dark Red theme implementation with glassmorphism.
+- Responsive dashboard and interactive reports.
 
 ---
 
-## 11. End-to-End Workflow
+## 9. Live Application
 
-1. User uploads an invoice PDF or image via the desktop app
-2. App converts PDF pages to images if needed
-3. Tesseract.js runs OCR and extracts raw text from the document
-4. Invoice Parser structures the raw text into named fields — Vendor, Invoice Number, Date, Totals, Line Items
-5. Extracted invoice is saved to local SQLite with status "Pending Reconciliation"
-6. User uploads the expected payment register (CSV/Excel)
-7. Reconciliation Engine matches invoices to register entries using fuzzy logic
-8. Mismatches, duplicates, and missing invoices are flagged and labeled
-9. Dashboard displays all flags with details
-10. User exports the final reconciliation report as CSV or PDF
+The application is deployed and accessible at:
+- **Frontend**: [invoice-ocr-reconciler.vercel.app](https://invoice-ocr-reconciler.vercel.app/)
+- **Backend**: [invoice-ocr-backend.onrender.com](https://invoice-ocr-backend.onrender.com/)
 
 ---
 
-## 12. Demo & Video
-- **Live Demo Link**: (to be added)
-- **Demo Video Link**: (to be added)
-- **GitHub Repository**: [https://github.com/ramanverse/Invoice-ocr-Reconciler](https://github.com/ramanverse/Invoice-ocr-Reconciler)
-
----
-
-## 13. Hackathon Deliverables Summary
-- Functional desktop/web app with OCR-based invoice extraction
-- Reconciliation engine with mismatch, duplicate, and missing invoice detection
-- Reconciliation report export in CSV and PDF formats
-- Complete README with architecture, API documentation, and workflow
-
----
-
-## 14. Future Scope & Scalability
-
-### Short-Term
-- Support multi-language invoices using Tesseract multi-language models
-- Add ML-based field extraction (LayoutLM) to improve accuracy on complex invoice layouts
-- Email integration to auto-import invoices directly from inbox
-
-### Long-Term
-- Cloud-sync option for team collaboration
-- ERP and accounting software integration (QuickBooks, Tally, Zoho Books)
-- AI-powered anomaly detection for fraud identification
-- Mobile app for on-the-go invoice scanning and submission
-
----
-
-## 15. Known Limitations
-- OCR accuracy degrades on low-quality scans, handwritten invoices, or non-standard fonts
-- Regex parser may fail on highly unusual or custom invoice layouts
-- Fuzzy matching can produce false positives for vendors with similar names
-- No support for encrypted or password-protected PDFs in the current MVP
-
----
-
-## 16. Impact
-- Reduces manual data entry time by up to 80% for accounting and finance teams
-- Minimizes the risk of duplicate payments and invoice fraud
-- Provides small businesses with an affordable, privacy-safe alternative to expensive cloud OCR solutions
-- Improves cash flow management through faster and more accurate reconciliation workflows
+## 10. License & Privacy
+This tool is open-source and prioritizes data privacy through offline-first processing options. All sensitive financial data remains isolated within the user's secure environment.

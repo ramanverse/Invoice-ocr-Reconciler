@@ -1,8 +1,10 @@
-import { Routes, Route, NavLink, useLocation } from 'react-router-dom';
+import { Routes, Route, NavLink, useLocation, Navigate } from 'react-router-dom';
 import {
   LayoutDashboard, Upload, FileText, GitMerge, BarChart2,
-  Settings, Zap, Clock, CheckCircle, AlertTriangle, Trash2
+  Settings, Zap, Clock, CheckCircle, AlertTriangle, Trash2, LogOut
 } from 'lucide-react';
+import { GoogleOAuthProvider } from '@react-oauth/google';
+import { AuthProvider, useAuth } from './context/AuthContext';
 
 import Dashboard from './pages/Dashboard.jsx';
 import UploadInvoice from './pages/UploadInvoice.jsx';
@@ -10,6 +12,8 @@ import InvoiceList from './pages/InvoiceList.jsx';
 import InvoiceDetail from './pages/InvoiceDetail.jsx';
 import Reconciliation from './pages/Reconciliation.jsx';
 import Reports from './pages/Reports.jsx';
+import Login from './pages/Login.jsx';
+import Signup from './pages/Signup.jsx';
 
 const navItems = [
   { path: '/', icon: <LayoutDashboard size={18} />, label: 'Dashboard' },
@@ -19,8 +23,22 @@ const navItems = [
   { path: '/reports', icon: <BarChart2 size={18} />, label: 'Reports' },
 ];
 
-export default function App() {
+const ProtectedRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  if (loading) return (
+    <div className="loading-screen">
+      <Zap size={48} className="accent-text spin" />
+    </div>
+  );
+  if (!user) return <Navigate to="/login" />;
+  return children;
+};
+
+function AppContent() {
   const location = useLocation();
+  const { user, loading, logout } = useAuth();
+
+  const isAuthPage = location.pathname === '/login' || location.pathname === '/signup';
 
   const getPageMeta = () => {
     const map = {
@@ -34,6 +52,16 @@ export default function App() {
   };
 
   const meta = getPageMeta();
+
+  if (isAuthPage) {
+    if (user && !loading) return <Navigate to="/" />;
+    return (
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
+      </Routes>
+    );
+  }
 
   return (
     <div className="app-shell">
@@ -57,6 +85,11 @@ export default function App() {
         </nav>
 
         <div className="sidebar-footer">
+          {user && (
+            <button className="nav-link logout-btn" onClick={logout} title="Logout">
+              <span className="nav-icon"><LogOut size={18} /></span>
+            </button>
+          )}
           <div className="sidebar-status" title="Backend connected · Port 5001">
             <div className="status-dot" />
           </div>
@@ -71,6 +104,16 @@ export default function App() {
             <div className="header-subtitle">{meta.subtitle}</div>
           </div>
           <div className="header-actions">
+            {user && (
+              <div className="user-profile-header">
+                {user.avatar ? (
+                  <img src={user.avatar} alt={user.name} className="user-avatar-small" />
+                ) : (
+                  <div className="user-initials-small">{user.name?.charAt(0)}</div>
+                )}
+                <span className="user-name-header">{user.name}</span>
+              </div>
+            )}
             <div style={{
               background: 'rgba(239, 68, 68, 0.1)',
               border: '1px solid rgba(239, 68, 68, 0.2)',
@@ -91,15 +134,28 @@ export default function App() {
 
         <main className="page-content fade-in">
           <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/upload" element={<UploadInvoice />} />
-            <Route path="/invoices" element={<InvoiceList />} />
-            <Route path="/invoices/:id" element={<InvoiceDetail />} />
-            <Route path="/reconcile" element={<Reconciliation />} />
-            <Route path="/reports" element={<Reports />} />
+            <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/upload" element={<ProtectedRoute><UploadInvoice /></ProtectedRoute>} />
+            <Route path="/invoices" element={<ProtectedRoute><InvoiceList /></ProtectedRoute>} />
+            <Route path="/invoices/:id" element={<ProtectedRoute><InvoiceDetail /></ProtectedRoute>} />
+            <Route path="/reconcile" element={<ProtectedRoute><Reconciliation /></ProtectedRoute>} />
+            <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+            <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </main>
       </div>
     </div>
+  );
+}
+
+export default function App() {
+  const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "PASTE_YOUR_GOOGLE_CLIENT_ID_HERE";
+
+  return (
+    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </GoogleOAuthProvider>
   );
 }

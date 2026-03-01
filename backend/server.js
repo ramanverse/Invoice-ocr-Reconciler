@@ -8,18 +8,67 @@ const Tesseract = require('tesseract.js');
 const csv = require('csv-parser');
 const { Parser } = require('json2csv');
 const PDFDocument = require('pdfkit');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { OAuth2Client } = require('google-auth-library');
 
 const db = require('./db');
 const { parseInvoice } = require('./invoiceParser');
 const { reconcile } = require('./reconciliationEngine');
 
+// ─── Environment Validation ──────────────────────────────────────────────────
+const REQUIRED_ENV = ['JWT_SECRET'];
+if (process.env.DATABASE_URL) {
+  // If we have DATABASE_URL, assume we are in production/cloud
+  console.log('Production Environment detected');
+} else {
+  console.log('Local Environment detected');
+}
+
+REQUIRED_ENV.forEach(key => {
+  if (!process.env[key] && key === 'JWT_SECRET') {
+    console.warn(`WARNING: ${key} is not set. Using insecure default.`);
+  }
+});
+
 const app = express();
-const PORT = 5001;
+const PORT = process.env.PORT || 5001;
+const JWT_SECRET = process.env.JWT_SECRET || 'your_super_secret_jwt_key_12345';
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+
+const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
 // Middleware
 app.use(cors({ origin: '*' }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// ─── Auth Middleware ──────────────────────────────────────────────────────────
+
+const protect = async (req, res, next) => {
+  let token;
+  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+    token = req.headers.authorization.split(' ')[1];
+  }
+
+  if (!token) {
+    return res.status(401).json({ error: 'Not authorized, no token' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const user = await db.get('SELECT id, name, email, avatar FROM users WHERE id = ?', [decoded.id]);
+    if (!user) return res.status(401).json({ error: 'Not authorized, user not found' });
+    req.user = user;
+    next();
+  } catch (err) {
+    res.status(401).json({ error: 'Not authorized, token failed' });
+  }
+};
+
+const generateToken = (id) => {
+  return jwt.sign({ id }, JWT_SECRET, { expiresIn: '24h' });
+};
 
 // Upload directories
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
@@ -99,7 +148,101 @@ function parseCSVRegister(filePath) {
   });
 }
 
-// ─── Routes ───────────────────────────────────────────────────────────────────
+// ─── Auth Routes ──────────────────────────────────────────────────────────────
+
+// Register
+app.post('/api/auth/register', async (req, res) => {
+  const { name, email, password } = req.body;
+  if (!name || !email || !password) return res.status(400).json({ error: 'Please provide all fields' });
+
+  try {
+    const existing = await db.get('SELECT id FROM users WHERE email = ?', [email]);
+    if (existing) return res.status(400).json({ error: 'User already exists' });
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+    const userId = uuidv4();
+
+    await db.run('INSERT INTO users (id, name, email, password_hash) VALUES (?, ?, ?, ?)', [userId, name, email, hashedPassword]);
+
+    res.status(201).json({
+      id: userId,
+      name,
+      email,
+      token: generateToken(userId),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Login
+app.post('/api/auth/login', async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) return res.status(400).json({ error: 'Please provide email and password' });
+
+  try {
+    const user = await db.get('SELECT * FROM users WHERE email = ?', [email]);
+    if (user && user.password_hash) {
+      const isMatch = await bcrypt.compare(password, user.password_hash);
+      if (isMatch) {
+        return res.json({
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          avatar: user.avatar,
+          token: generateToken(user.id),
+        });
+      }
+    }
+    res.status(401).json({ error: 'Invalid email or password' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Google Auth
+app.post('/api/auth/google', async (req, res) => {
+  const { token } = req.body;
+  if (!token) return res.status(400).json({ error: 'Google token required' });
+
+  try {
+    const ticket = await googleClient.verifyIdToken({
+      idToken: token,
+      audience: GOOGLE_CLIENT_ID,
+    });
+    const { name, email, sub: google_id, picture: avatar } = ticket.getPayload();
+
+    let user = await db.get('SELECT * FROM users WHERE email = ? OR google_id = ?', [email, google_id]);
+
+    if (user) {
+      if (!user.google_id) {
+        await db.run('UPDATE users SET google_id = ?, avatar = ? WHERE id = ?', [google_id, avatar, user.id]);
+      }
+    } else {
+      const userId = uuidv4();
+      await db.run('INSERT INTO users (id, name, email, google_id, avatar) VALUES (?, ?, ?, ?, ?)', [userId, name, email, google_id, avatar]);
+      user = { id: userId, name, email, avatar };
+    }
+
+    res.json({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      avatar: user.avatar || avatar,
+      token: generateToken(user.id),
+    });
+  } catch (err) {
+    res.status(401).json({ error: 'Google authentication failed' });
+  }
+});
+
+// Get current user info
+app.get('/api/auth/me', protect, (req, res) => {
+  res.json(req.user);
+});
+
+// ─── Protected Routes (Health & Dashboard) ────────────────────────────────────
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -107,29 +250,39 @@ app.get('/api/health', (req, res) => {
 });
 
 // Dashboard stats
-app.get('/api/stats', (req, res) => {
+app.get('/api/stats', protect, async (req, res) => {
   try {
-    const totalInvoices = db.prepare('SELECT COUNT(*) as count FROM invoices').get().count;
-    const pendingInvoices = db.prepare("SELECT COUNT(*) as count FROM invoices WHERE status = 'pending'").get().count;
-    const matchedInvoices = db.prepare("SELECT COUNT(*) as count FROM invoices WHERE status = 'matched'").get().count;
-    const totalAmount = db.prepare('SELECT COALESCE(SUM(total_amount), 0) as sum FROM invoices').get().sum;
-    const sessions = db.prepare('SELECT COUNT(*) as count FROM reconciliation_sessions').get().count;
-    const recentInvoices = db.prepare('SELECT * FROM invoices ORDER BY created_at DESC LIMIT 5').all();
-    const flaggedCount = db.prepare("SELECT COUNT(*) as count FROM reconciliation_results WHERE match_status != 'matched'").get().count;
-    const monthlyData = db.prepare(`
-      SELECT strftime('%Y-%m', created_at) as month, COUNT(*) as count, SUM(total_amount) as total
+    const userId = req.user.id;
+    const totalInvoicesRes = await db.get('SELECT COUNT(*) as count FROM invoices WHERE user_id = ?', [userId]);
+    const pendingInvoicesRes = await db.get("SELECT COUNT(*) as count FROM invoices WHERE status = 'pending' AND user_id = ?", [userId]);
+    const matchedInvoicesRes = await db.get("SELECT COUNT(*) as count FROM invoices WHERE status = 'matched' AND user_id = ?", [userId]);
+    const totalAmountRes = await db.get('SELECT SUM(total_amount) as sum FROM invoices WHERE user_id = ?', [userId]);
+    const sessionsRes = await db.get('SELECT COUNT(*) as count FROM reconciliation_sessions WHERE user_id = ?', [userId]);
+    const recentInvoices = await db.all('SELECT * FROM invoices WHERE user_id = ? ORDER BY created_at DESC LIMIT 5', [userId]);
+
+    const flaggedRes = await db.get(`
+      SELECT COUNT(*) as count 
+      FROM reconciliation_results rr
+      JOIN invoices i ON rr.invoice_id = i.id
+      WHERE i.user_id = ? AND rr.match_status != 'matched'
+    `, [userId]);
+
+    // Compatible monthly data (works for both SQLite strftime and standard SQL extracted month)
+    const monthlyData = await db.all(`
+      SELECT SUBSTR(created_at, 1, 7) as month, COUNT(*) as count, SUM(total_amount) as total
       FROM invoices
-      GROUP BY strftime('%Y-%m', created_at)
+      WHERE user_id = ?
+      GROUP BY SUBSTR(created_at, 1, 7)
       ORDER BY month DESC LIMIT 6
-    `).all();
+    `, [userId]);
 
     res.json({
-      totalInvoices,
-      pendingInvoices,
-      matchedInvoices,
-      totalAmount,
-      reconciliationSessions: sessions,
-      flaggedItems: flaggedCount,
+      totalInvoices: totalInvoicesRes.count || 0,
+      pendingInvoices: pendingInvoicesRes.count || 0,
+      matchedInvoices: matchedInvoicesRes.count || 0,
+      totalAmount: totalAmountRes.sum || 0,
+      reconciliationSessions: sessionsRes.count || 0,
+      flaggedItems: flaggedRes.count || 0,
       recentInvoices,
       monthlyData: monthlyData.reverse(),
     });
@@ -139,11 +292,12 @@ app.get('/api/stats', (req, res) => {
 });
 
 // Upload & OCR invoice
-app.post('/api/invoices/upload', uploadInvoice.array('invoices', 20), async (req, res) => {
+app.post('/api/invoices/upload', protect, uploadInvoice.array('invoices', 20), async (req, res) => {
   if (!req.files || req.files.length === 0) {
     return res.status(400).json({ error: 'No files uploaded' });
   }
 
+  const userId = req.user.id;
   const results = [];
   for (const file of req.files) {
     try {
@@ -151,12 +305,12 @@ app.post('/api/invoices/upload', uploadInvoice.array('invoices', 20), async (req
       const parsed = parseInvoice(rawText);
       const invoiceId = uuidv4();
 
-      const insertInvoice = db.prepare(`
-        INSERT INTO invoices (id, vendor_name, invoice_number, invoice_date, due_date, subtotal, tax, total_amount, currency, file_path, file_name, ocr_raw_text, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
-      `);
-      insertInvoice.run(
+      await db.run(`
+        INSERT INTO invoices (id, user_id, vendor_name, invoice_number, invoice_date, due_date, subtotal, tax, total_amount, currency, file_path, file_name, ocr_raw_text, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+      `, [
         invoiceId,
+        userId,
         parsed.vendor_name,
         parsed.invoice_number,
         parsed.invoice_date,
@@ -168,16 +322,15 @@ app.post('/api/invoices/upload', uploadInvoice.array('invoices', 20), async (req
         file.path,
         file.originalname,
         rawText,
-      );
+      ]);
 
       // Insert line items
       if (parsed.line_items && parsed.line_items.length > 0) {
-        const insertItem = db.prepare(`
-          INSERT INTO line_items (invoice_id, description, quantity, unit_price, amount)
-          VALUES (?, ?, ?, ?, ?)
-        `);
         for (const item of parsed.line_items) {
-          insertItem.run(invoiceId, item.description, item.quantity, item.unit_price, item.amount);
+          await db.run(`
+            INSERT INTO line_items (invoice_id, description, quantity, unit_price, amount)
+            VALUES (?, ?, ?, ?, ?)
+          `, [invoiceId, item.description, item.quantity, item.unit_price, item.amount]);
         }
       }
 
@@ -201,13 +354,14 @@ app.post('/api/invoices/upload', uploadInvoice.array('invoices', 20), async (req
 });
 
 // Get all invoices with pagination and filtering
-app.get('/api/invoices', (req, res) => {
+app.get('/api/invoices', protect, async (req, res) => {
   try {
+    const userId = req.user.id;
     const { page = 1, limit = 20, status, search, sort = 'created_at', order = 'DESC' } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
-    let where = [];
-    let params = [];
+    let where = ["user_id = ?"];
+    let params = [userId];
 
     if (status) { where.push("status = ?"); params.push(status); }
     if (search) {
@@ -215,28 +369,34 @@ app.get('/api/invoices', (req, res) => {
       params.push(`%${search}%`, `%${search}%`);
     }
 
-    const whereClause = where.length ? `WHERE ${where.join(' AND ')}` : '';
+    const whereClause = `WHERE ${where.join(' AND ')}`;
     const allowedSorts = ['created_at', 'vendor_name', 'total_amount', 'invoice_date'];
     const sortCol = allowedSorts.includes(sort) ? sort : 'created_at';
     const sortOrder = order === 'ASC' ? 'ASC' : 'DESC';
 
-    const invoices = db.prepare(`SELECT * FROM invoices ${whereClause} ORDER BY ${sortCol} ${sortOrder} LIMIT ? OFFSET ?`)
-      .all(...params, parseInt(limit), offset);
-    const total = db.prepare(`SELECT COUNT(*) as count FROM invoices ${whereClause}`).get(...params).count;
+    const invoices = await db.all(`SELECT * FROM invoices ${whereClause} ORDER BY ${sortCol} ${sortOrder} LIMIT ? OFFSET ?`, [...params, parseInt(limit), offset]);
+    const totalRes = await db.get(`SELECT COUNT(*) as count FROM invoices ${whereClause}`, params);
 
-    res.json({ invoices, total, page: parseInt(page), limit: parseInt(limit), totalPages: Math.ceil(total / limit) });
+    res.json({
+      invoices,
+      total: totalRes.count,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      totalPages: Math.ceil(totalRes.count / parseInt(limit))
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 // Get single invoice with line items
-app.get('/api/invoices/:id', (req, res) => {
+app.get('/api/invoices/:id', protect, async (req, res) => {
   try {
-    const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(req.params.id);
-    if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
-    const lineItems = db.prepare('SELECT * FROM line_items WHERE invoice_id = ?').all(req.params.id);
-    const reconciliationResult = db.prepare('SELECT * FROM reconciliation_results WHERE invoice_id = ?').get(req.params.id);
+    const userId = req.user.id;
+    const invoice = await db.get('SELECT * FROM invoices WHERE id = ? AND user_id = ?', [req.params.id, userId]);
+    if (!invoice) return res.status(404).json({ error: 'Invoice not found or unauthorized' });
+    const lineItems = await db.all('SELECT * FROM line_items WHERE invoice_id = ?', [req.params.id]);
+    const reconciliationResult = await db.get('SELECT * FROM reconciliation_results WHERE invoice_id = ?', [req.params.id]);
     res.json({ ...invoice, line_items: lineItems, reconciliation: reconciliationResult });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -244,48 +404,55 @@ app.get('/api/invoices/:id', (req, res) => {
 });
 
 // Update invoice fields manually
-app.put('/api/invoices/:id', (req, res) => {
+app.put('/api/invoices/:id', protect, async (req, res) => {
   try {
+    const userId = req.user.id;
     const { vendor_name, invoice_number, invoice_date, due_date, subtotal, tax, total_amount, currency, line_items } = req.body;
 
-    const updateBatch = db.transaction(() => {
-      const update = db.prepare(`
-        UPDATE invoices SET vendor_name=?, invoice_number=?, invoice_date=?, due_date=?, subtotal=?, tax=?, total_amount=?, currency=?, updated_at=datetime('now')
-        WHERE id=?
-      `);
-      const info = update.run(vendor_name, invoice_number, invoice_date, due_date, subtotal, tax, total_amount, currency, req.params.id);
+    // Transaction start (simplified for async/dual-db)
+    await db.run('BEGIN TRANSACTION');
 
-      if (info.changes === 0) throw new Error('Invoice not found');
+    try {
+      const info = await db.run(`
+        UPDATE invoices SET vendor_name=?, invoice_number=?, invoice_date=?, due_date=?, subtotal=?, tax=?, total_amount=?, currency=?, updated_at=CURRENT_TIMESTAMP
+        WHERE id=? AND user_id=?
+      `, [vendor_name, invoice_number, invoice_date, due_date, subtotal, tax, total_amount, currency, req.params.id, userId]);
+
+      if (info.rowCount === 0 && info.changes === 0) throw new Error('Invoice not found or unauthorized');
 
       if (line_items && Array.isArray(line_items)) {
-        db.prepare('DELETE FROM line_items WHERE invoice_id = ?').run(req.params.id);
-        const insertItem = db.prepare(`
-          INSERT INTO line_items (invoice_id, description, quantity, unit_price, amount)
-          VALUES (?, ?, ?, ?, ?)
-        `);
+        await db.run('DELETE FROM line_items WHERE invoice_id = ?', [req.params.id]);
         for (const item of line_items) {
-          insertItem.run(req.params.id, item.description, item.quantity, item.unit_price, item.amount);
+          await db.run(`
+            INSERT INTO line_items (invoice_id, description, quantity, unit_price, amount)
+            VALUES (?, ?, ?, ?, ?)
+          `, [req.params.id, item.description, item.quantity, item.unit_price, item.amount]);
         }
       }
-    });
 
-    updateBatch();
-    res.json({ success: true });
+      await db.run('COMMIT');
+      res.json({ success: true });
+    } catch (innerErr) {
+      await db.run('ROLLBACK');
+      throw innerErr;
+    }
   } catch (err) {
-    const status = err.message === 'Invoice not found' ? 404 : 500;
+    const status = err.message.includes('not found') ? 404 : 500;
     res.status(status).json({ error: err.message });
   }
 });
 
 // Delete invoice
-app.delete('/api/invoices/:id', (req, res) => {
+app.delete('/api/invoices/:id', protect, async (req, res) => {
   try {
-    const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(req.params.id);
-    if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
+    const userId = req.user.id;
+    const invoice = await db.get('SELECT * FROM invoices WHERE id = ? AND user_id = ?', [req.params.id, userId]);
+    if (!invoice) return res.status(404).json({ error: 'Invoice not found or unauthorized' });
+
     if (invoice.file_path && fs.existsSync(invoice.file_path)) {
       fs.unlinkSync(invoice.file_path);
     }
-    db.prepare('DELETE FROM invoices WHERE id = ?').run(req.params.id);
+    await db.run('DELETE FROM invoices WHERE id = ?', [req.params.id]);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -293,7 +460,7 @@ app.delete('/api/invoices/:id', (req, res) => {
 });
 
 // Upload payment register CSV
-app.post('/api/register/upload', uploadRegister.single('register'), async (req, res) => {
+app.post('/api/register/upload', protect, uploadRegister.single('register'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No register file uploaded' });
   try {
     const ext = path.extname(req.file.originalname).toLowerCase();
@@ -311,42 +478,46 @@ app.post('/api/register/upload', uploadRegister.single('register'), async (req, 
 });
 
 // Manual link reconciliation
-app.post('/api/reconcile/link', (req, res) => {
+app.post('/api/reconcile/link', protect, async (req, res) => {
   try {
     const { invoice_id, record_id, session_id, discrepancy = 0 } = req.body;
     if (!invoice_id || !record_id) return res.status(400).json({ error: 'invoice_id and record_id required' });
 
-    const manualUpdate = db.transaction(() => {
+    await db.run('BEGIN TRANSACTION');
+    try {
       // Update invoice status
-      db.prepare("UPDATE invoices SET status = 'matched', updated_at = datetime('now') WHERE id = ?").run(invoice_id);
+      await db.run("UPDATE invoices SET status = 'matched', updated_at = CURRENT_TIMESTAMP WHERE id = ?", [invoice_id]);
 
       // Update or insert reconciliation result
-      const existing = db.prepare('SELECT id FROM reconciliation_results WHERE invoice_id = ?').get(invoice_id);
+      const existing = await db.get('SELECT id FROM reconciliation_results WHERE invoice_id = ?', [invoice_id]);
       if (existing) {
-        db.prepare(`
+        await db.run(`
           UPDATE reconciliation_results 
           SET record_id = ?, match_status = 'matched', discrepancy = ?, flag_reason = 'Manually reconciled', confidence_score = 100 
           WHERE id = ?
-        `).run(record_id, discrepancy, existing.id);
+        `, [record_id, discrepancy, existing.id]);
       } else {
-        db.prepare(`
+        await db.run(`
           INSERT INTO reconciliation_results (id, invoice_id, record_id, match_status, discrepancy, flag_reason, confidence_score, session_id)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(uuidv4(), invoice_id, record_id, 'matched', discrepancy, 'Manually reconciled', 100, session_id || 'manual');
+        `, [uuidv4(), invoice_id, record_id, 'matched', discrepancy, 'Manually reconciled', 100, session_id || 'manual']);
       }
-    });
 
-    manualUpdate();
-    res.json({ success: true });
+      await db.run('COMMIT');
+      res.json({ success: true });
+    } catch (innerErr) {
+      await db.run('ROLLBACK');
+      throw innerErr;
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 // Run reconciliation
-app.post('/api/reconcile', async (req, res) => {
-
+app.post('/api/reconcile', protect, async (req, res) => {
   try {
+    const userId = req.user.id;
     const { register_records, invoice_ids } = req.body;
     if (!register_records || !Array.isArray(register_records)) {
       return res.status(400).json({ error: 'register_records array required' });
@@ -355,9 +526,9 @@ app.post('/api/reconcile', async (req, res) => {
     let invoices;
     if (invoice_ids && Array.isArray(invoice_ids) && invoice_ids.length > 0) {
       const placeholders = invoice_ids.map(() => '?').join(',');
-      invoices = db.prepare(`SELECT * FROM invoices WHERE id IN (${placeholders})`).all(...invoice_ids);
+      invoices = await db.all(`SELECT * FROM invoices WHERE id IN (${placeholders}) AND user_id = ?`, [...invoice_ids, userId]);
     } else {
-      invoices = db.prepare("SELECT * FROM invoices WHERE status IN ('pending', 'mismatch', 'missing')").all();
+      invoices = await db.all("SELECT * FROM invoices WHERE status IN ('pending', 'mismatch', 'missing') AND user_id = ?", [userId]);
     }
 
     if (invoices.length === 0) {
@@ -367,28 +538,28 @@ app.post('/api/reconcile', async (req, res) => {
     const sessionId = uuidv4();
     const { results, summary, missingRecords } = reconcile(invoices, register_records);
 
-    // Store results in DB
-    const insertResult = db.prepare(`
-      INSERT INTO reconciliation_results (id, invoice_id, record_id, match_status, discrepancy, flag_reason, confidence_score, session_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    const updateInvoice = db.prepare("UPDATE invoices SET status = ?, updated_at = datetime('now') WHERE id = ?");
-
-    const insertMany = db.transaction(() => {
+    await db.run('BEGIN TRANSACTION');
+    try {
       for (const result of results) {
-        insertResult.run(uuidv4(), result.invoice_id, result.record_id, result.match_status, result.discrepancy, result.flag_reason, result.confidence_score, sessionId);
-        updateInvoice.run(result.match_status, result.invoice_id);
+        await db.run(`
+          INSERT INTO reconciliation_results (id, invoice_id, record_id, match_status, discrepancy, flag_reason, confidence_score, session_id)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `, [uuidv4(), result.invoice_id, result.record_id, result.match_status, result.discrepancy, result.flag_reason, result.confidence_score, sessionId]);
+
+        await db.run("UPDATE invoices SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [result.match_status, result.invoice_id]);
       }
-    });
-    insertMany();
 
-    // Save session
-    db.prepare(`
-      INSERT INTO reconciliation_sessions (id, register_file_name, total_invoices, matched, mismatched, missing, duplicate)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(sessionId, 'Uploaded Register', summary.total_invoices, summary.matched, summary.mismatched, summary.missing_invoices, summary.duplicate);
+      await db.run(`
+        INSERT INTO reconciliation_sessions (id, user_id, register_file_name, total_invoices, matched, mismatched, missing, duplicate)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `, [sessionId, userId, 'Uploaded Register', summary.total_invoices, summary.matched, summary.mismatched, summary.missing_invoices, summary.duplicate]);
 
-    // Build enriched results
+      await db.run('COMMIT');
+    } catch (innerErr) {
+      await db.run('ROLLBACK');
+      throw innerErr;
+    }
+
     const enrichedResults = results.map(r => {
       const invoice = invoices.find(i => i.id === r.invoice_id);
       const record = register_records.find(rec => rec.id === r.record_id);
@@ -402,9 +573,10 @@ app.post('/api/reconcile', async (req, res) => {
 });
 
 // Get reconciliation history
-app.get('/api/reconciliations', (req, res) => {
+app.get('/api/reconciliations', protect, async (req, res) => {
   try {
-    const sessions = db.prepare('SELECT * FROM reconciliation_sessions ORDER BY created_at DESC LIMIT 20').all();
+    const userId = req.user.id;
+    const sessions = await db.all('SELECT * FROM reconciliation_sessions WHERE user_id = ? ORDER BY created_at DESC LIMIT 20', [userId]);
     res.json(sessions);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -412,14 +584,18 @@ app.get('/api/reconciliations', (req, res) => {
 });
 
 // Export report as CSV
-app.get('/api/report/:sessionId/csv', (req, res) => {
+app.get('/api/report/:sessionId/csv', protect, async (req, res) => {
   try {
-    const results = db.prepare(`
+    const userId = req.user.id;
+    const session = await db.get('SELECT id FROM reconciliation_sessions WHERE id = ? AND user_id = ?', [req.params.sessionId, userId]);
+    if (!session) return res.status(404).json({ error: 'Session not found or unauthorized' });
+
+    const results = await db.all(`
       SELECT rr.*, i.vendor_name, i.invoice_number, i.total_amount, i.invoice_date, i.file_name
       FROM reconciliation_results rr
       LEFT JOIN invoices i ON rr.invoice_id = i.id
       WHERE rr.session_id = ?
-    `).all(req.params.sessionId);
+    `, [req.params.sessionId]);
 
     if (results.length === 0) return res.status(404).json({ error: 'Session not found' });
 
@@ -436,28 +612,29 @@ app.get('/api/report/:sessionId/csv', (req, res) => {
 });
 
 // Export report as PDF
-app.get('/api/report/:sessionId/pdf', (req, res) => {
+app.get('/api/report/:sessionId/pdf', protect, async (req, res) => {
   try {
-    const session = db.prepare('SELECT * FROM reconciliation_sessions WHERE id = ?').get(req.params.sessionId);
-    const results = db.prepare(`
+    const userId = req.user.id;
+    const session = await db.get('SELECT * FROM reconciliation_sessions WHERE id = ? AND user_id = ?', [req.params.sessionId, userId]);
+    if (!session) return res.status(444).json({ error: 'Session not found or unauthorized' });
+
+    const results = await db.all(`
       SELECT rr.*, i.vendor_name, i.invoice_number, i.total_amount, i.invoice_date
       FROM reconciliation_results rr
       LEFT JOIN invoices i ON rr.invoice_id = i.id
       WHERE rr.session_id = ?
-    `).all(req.params.sessionId);
+    `, [req.params.sessionId]);
 
     const doc = new PDFDocument({ margin: 50 });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="reconciliation-${req.params.sessionId}.pdf"`);
     doc.pipe(res);
 
-    // Header
-    doc.fontSize(22).fillColor('#6366f1').text('Invoice Reconciliation Report', { align: 'center' });
+    doc.fontSize(22).fillColor('#EF4444').text('Invoice Reconciliation Report', { align: 'center' });
     doc.moveDown(0.5);
     doc.fontSize(10).fillColor('#888').text(`Generated: ${new Date().toLocaleString()}`, { align: 'center' });
     doc.moveDown(1);
 
-    // Summary
     if (session) {
       doc.fontSize(14).fillColor('#333').text('Summary');
       doc.moveDown(0.3);
@@ -470,7 +647,6 @@ app.get('/api/report/:sessionId/pdf', (req, res) => {
       doc.moveDown(1);
     }
 
-    // Results table
     doc.fontSize(14).fillColor('#333').text('Reconciliation Results');
     doc.moveDown(0.5);
 
@@ -495,8 +671,8 @@ app.use('/uploads', express.static(UPLOADS_DIR));
 
 // Error handler
 app.use((err, req, res, next) => {
-  console.error('Error:', err.message);
-  res.status(500).json({ error: err.message });
+  console.error('Fatal Server Error:', err.stack);
+  res.status(500).json({ error: 'Interval Server Error. Please contact support.' });
 });
 
 app.listen(PORT, '0.0.0.0', () => {

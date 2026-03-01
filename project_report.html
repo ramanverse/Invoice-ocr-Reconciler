@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="hi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice OCR & Reconciler Report</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0d0d0d;
+            --text-color: #e0e0e0;
+            --accent-color: #ef4444;
+            --secondary-color: #1a1a1a;
+            --border-color: #333;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            padding: 40px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: var(--accent-color);
+            border-bottom: 2px solid var(--accent-color);
+            padding-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        h2 {
+            color: var(--accent-color);
+            margin-top: 40px;
+            font-size: 1.8em;
+            border-left: 5px solid var(--accent-color);
+            padding-left: 15px;
+        }
+
+        h3 {
+            color: #fff;
+            margin-top: 25px;
+        }
+
+        .intro {
+            font-size: 1.2em;
+            margin-bottom: 30px;
+            font-style: italic;
+        }
+
+        .card {
+            background: var(--secondary-color);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        code {
+            background: #222;
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: var(--accent-color);
+            font-weight: 600;
+        }
+
+        .step {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 20px;
+        }
+
+        .step-number {
+            background: var(--accent-color);
+            color: #fff;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+            flex-shrink: 0;
+            font-weight: bold;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        li {
+            padding: 8px 0;
+            border-bottom: 1px solid #222;
+        }
+
+        li:last-child {
+            border-bottom: none;
+        }
+
+        @media print {
+            body {
+                background: white;
+                color: black;
+                padding: 20px;
+            }
+
+            h1,
+            h2,
+            h3 {
+                color: #d00;
+                border-color: #d00;
+            }
+
+            .card {
+                border-color: #ddd;
+                background: #fafafa;
+            }
+
+            code {
+                color: #d00;
+                background: #eee;
+            }
+
+            .step-number {
+                background: #d00;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Invoice OCR & Reconciler Project Report</h1>
+    <p class="intro">Bhai, ye project ek fully automatic system hai jo invoices se data extract karta hai aur unhe
+        payment records ke saath match karta hai. Sab kuch offline hai!</p>
+
+    <h2>1. Project Structure (Kaunsi Cheez Kahan Hai?)</h2>
+
+    <div class="card">
+        <h3>📂 Root Directory</h3>
+        <p><code>README.md</code>: Project ka main document. Isme architecture details hain.</p>
+        <p><code>.gitignore</code>: फालतू files ko ignore karne ke liye.</p>
+    </div>
+
+    <div class="card">
+        <h3>📂 Backend (<code>/backend</code>)</h3>
+        <ul>
+            <li><strong>`server.js`</strong>: Main API logic.</li>
+            <li><strong>`invoiceParser.js`</strong>: Data extraction brain.</li>
+            <li><strong>`reconciliationEngine.js`</strong>: Matching system.</li>
+            <li><strong>`db.js`</strong>: SQLite database setup.</li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <h3>📂 Frontend (<code>/frontend</code>)</h3>
+        <p>Humne <strong>Modern Dark Red</strong> theme aur <strong>Outfit</strong> font use kiya hai premium design ke
+            liye.</p>
+    </div>
+
+    <h2>2. Step-by-Step Workflow</h2>
+
+    <div class="step">
+        <div class="step-number">1</div>
+        <div><strong>Invoice Upload</strong>: Aap PDF ya image upload karte ho.</div>
+    </div>
+    <div class="step">
+        <div class="step-number">2</div>
+        <div><strong>OCR Extraction</strong>: Tesseract.js text read karta hai aur structured data nikalta hai.</div>
+    </div>
+    <div class="step">
+        <div class="step-number">3</div>
+        <div><strong>Storage</strong>: Data SQLite mein save hota hai.</div>
+    </div>
+    <div class="step">
+        <div class="step-number">4</div>
+        <div><strong>Matching</strong>: Fuse.js fuzzy matching use karke mismatch ya missing invoices dhoondhta hai.
+        </div>
+    </div>
+
+    <h2>3. Design Choice (Kyun Aisa Kiya?)</h2>
+    <div class="card">
+        <p><strong>Red Theme 🔴</strong>: Unique aur professional look ke liye.</p>
+        <p><strong>Outfit Font 🔡</strong>: Modern geometric aesthetic ke liye.</p>
+        <p><strong>Offline 🛡️</strong>: 100% Privacy aur Security ke liye.</p>
+    </div>
+
+    <p style="text-align: center; margin-top: 50px; font-weight: bold; color: var(--accent-color);">Report taiyar hai
+        bhai! Sab kuch set hai. 👍</p>
+</body>
+
+</html>

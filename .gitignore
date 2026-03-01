@@ -1,12 +1,21 @@
+# Dependencies
 node_modules/
 backend/node_modules/
 frontend/node_modules/
+
+# Local Data & Uploads
 backend/uploads/*
 !backend/uploads/.gitkeep
+backend/registers/*
+!backend/registers/.gitkeep
 backend/data/*.sqlite
 backend/data/*.db
-.DS_Store
+backend/data/*.db-shm
+backend/data/*.db-wal
+
+# Build & System
 dist/
 build/
+.DS_Store
 .env
 *.log

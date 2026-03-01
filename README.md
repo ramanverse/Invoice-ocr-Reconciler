@@ -137,7 +137,15 @@ Tesseract.js (OCR Engine) + Regex / Heuristic Parser (Field Extraction) + Fuse.j
 
 ---
 
-## 9. API Documentation & Testing
+## 9. Documentation
+
+For more detailed information, please refer to the following documents in the `docs/` directory:
+- [How to Run](file:///Users/ramanthakur/Desktop/Invoice-ocr-Reconciler/docs/how_to_run.md) — Step-by-step setup and execution guide.
+- [Project Report](file:///Users/ramanthakur/Desktop/Invoice-ocr-Reconciler/docs/project_report.html) — Technical overview and design justifications.
+
+---
+
+## 10. API Documentation & Testing
 
 ### API Endpoints List
 - `POST /api/upload` — Upload an invoice file (PDF or image); returns extracted invoice data as JSON

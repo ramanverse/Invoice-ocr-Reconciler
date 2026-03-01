@@ -212,6 +212,33 @@ body::before {
   gap: 4px;
 }
 
+.signout-header-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 8px;
+  color: var(--accent-primary);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition);
+  margin-left: 12px;
+}
+
+.signout-header-btn:hover {
+  background: var(--accent-primary);
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
+}
+
+.signout-header-btn svg {
+  flex-shrink: 0;
+}
+
 .loading-screen {
   display: flex;
   align-items: center;

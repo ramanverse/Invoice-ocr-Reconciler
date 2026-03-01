@@ -10,7 +10,6 @@ const { Parser } = require('json2csv');
 const PDFDocument = require('pdfkit');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { OAuth2Client } = require('google-auth-library');
 
 const db = require('./db');
 const { parseInvoice } = require('./invoiceParser');
@@ -34,9 +33,6 @@ REQUIRED_ENV.forEach(key => {
 const app = express();
 const PORT = process.env.PORT || 5001;
 const JWT_SECRET = process.env.JWT_SECRET || 'your_super_secret_jwt_key_12345';
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-
-const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
 // Middleware
 app.use(cors({ origin: '*' }));
@@ -198,42 +194,6 @@ app.post('/api/auth/login', async (req, res) => {
     res.status(401).json({ error: 'Invalid email or password' });
   } catch (err) {
     res.status(500).json({ error: err.message });
-  }
-});
-
-// Google Auth
-app.post('/api/auth/google', async (req, res) => {
-  const { token } = req.body;
-  if (!token) return res.status(400).json({ error: 'Google token required' });
-
-  try {
-    const ticket = await googleClient.verifyIdToken({
-      idToken: token,
-      audience: GOOGLE_CLIENT_ID,
-    });
-    const { name, email, sub: google_id, picture: avatar } = ticket.getPayload();
-
-    let user = await db.get('SELECT * FROM users WHERE email = ? OR google_id = ?', [email, google_id]);
-
-    if (user) {
-      if (!user.google_id) {
-        await db.run('UPDATE users SET google_id = ?, avatar = ? WHERE id = ?', [google_id, avatar, user.id]);
-      }
-    } else {
-      const userId = uuidv4();
-      await db.run('INSERT INTO users (id, name, email, google_id, avatar) VALUES (?, ?, ?, ?, ?)', [userId, name, email, google_id, avatar]);
-      user = { id: userId, name, email, avatar };
-    }
-
-    res.json({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      avatar: user.avatar || avatar,
-      token: generateToken(user.id),
-    });
-  } catch (err) {
-    res.status(401).json({ error: 'Google authentication failed' });
   }
 });
 

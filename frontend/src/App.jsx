@@ -3,7 +3,6 @@ import {
   LayoutDashboard, Upload, FileText, GitMerge, BarChart2,
   Settings, Zap, Clock, CheckCircle, AlertTriangle, Trash2, LogOut
 } from 'lucide-react';
-import { GoogleOAuthProvider } from '@react-oauth/google';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 import Dashboard from './pages/Dashboard.jsx';
@@ -118,6 +117,10 @@ function AppContent() {
                     PRO ACCOUNT
                   </div>
                 </div>
+                <button className="signout-header-btn" onClick={logout} title="Sign Out">
+                  <LogOut size={16} />
+                  <span>Sign Out</span>
+                </button>
               </div>
             )}
           </div>
@@ -140,13 +143,9 @@ function AppContent() {
 }
 
 export default function App() {
-  const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "PASTE_YOUR_GOOGLE_CLIENT_ID_HERE";
-
   return (
-    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
-    </GoogleOAuthProvider>
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }

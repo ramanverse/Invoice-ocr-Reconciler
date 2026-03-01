@@ -75,7 +75,7 @@ Local OCR + Rule-based Structured Extraction + Fuzzy Matching Reconciliation Eng
 The system uses **SQLite** for local development and **PostgreSQL** for cloud production.
 
 ### Core Entities
-- **Users**: Authentication data (Local & Google OAuth).
+- **Users**: Authentication data (Local Email/Password).
 - **Invoices**: Extracted header data (Vendor, Amount, Date, etc.).
 - **LineItems**: Granular product/service data from invoices.
 - **ReconciliationResults**: Match statuses, discrepancies, and flag reasons.
@@ -110,8 +110,8 @@ All detailed project documentation is centralized in the `docs/` directory:
 - Repository structure established with `docs/` centralization.
 
 ### Checkpoint 2: Authentication & Security 🔐
-- Manual email/password and Google OAuth integration.
-- Secured API endpoints with JWT.
+- Manual email/password authentication (JWT secured).
+- Integrated accessible Sign Out in the dashboard header.
 
 ### Checkpoint 3: OCR & Parsing 📄
 - Tesseract.js integration for PDF/image processing.

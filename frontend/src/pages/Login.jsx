@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { GoogleLogin } from '@react-oauth/google';
 import { LogIn, Mail, Lock, AlertCircle, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -9,7 +8,7 @@ const Login = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const { login, googleLogin } = useAuth();
+    const { login } = useAuth();
     const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
@@ -23,16 +22,6 @@ const Login = () => {
             toast.error('Failed to login');
         } finally {
             setIsLoading(false);
-        }
-    };
-
-    const handleGoogleSuccess = async (credentialResponse) => {
-        try {
-            await googleLogin(credentialResponse.credential);
-            toast.success('Logged in with Google!');
-            navigate('/');
-        } catch (err) {
-            toast.error('Google login failed');
         }
     };
 
@@ -91,21 +80,6 @@ const Login = () => {
                             {isLoading ? <Loader2 className="spin" size={20} /> : 'Login to Dashboard'}
                         </button>
                     </form>
-
-                    <div className="auth-divider">
-                        <span>OR</span>
-                    </div>
-
-                    <div className="google-btn-wrapper">
-                        <GoogleLogin
-                            onSuccess={handleGoogleSuccess}
-                            onError={() => toast.error('Google login failed')}
-                            theme="filled_black"
-                            shape="pill"
-                            text="continue_with"
-                            width="100%"
-                        />
-                    </div>
 
                     <div className="auth-footer">
                         <p>New to the platform? <Link to="/signup">Create an account</Link></p>

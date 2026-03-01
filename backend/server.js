@@ -267,14 +267,15 @@ app.get('/api/stats', protect, async (req, res) => {
       WHERE i.user_id = ? AND rr.match_status != 'matched'
     `, [userId]);
 
-    // Compatible monthly data (works for both SQLite strftime and standard SQL extracted month)
-    const monthlyData = await db.all(`
-      SELECT SUBSTR(created_at, 1, 7) as month, COUNT(*) as count, SUM(total_amount) as total
-      FROM invoices
-      WHERE user_id = ?
-      GROUP BY SUBSTR(created_at, 1, 7)
-      ORDER BY month DESC LIMIT 6
-    `, [userId]);
+    // Cross-database compatible monthly data
+    const isPostgres = !!process.env.DATABASE_URL;
+    const monthlyQuery = isPostgres
+      ? `SELECT TO_CHAR(created_at, 'YYYY-MM') as month, COUNT(*) as count, SUM(total_amount) as total 
+         FROM invoices WHERE user_id = ? GROUP BY TO_CHAR(created_at, 'YYYY-MM') ORDER BY month DESC LIMIT 6`
+      : `SELECT SUBSTR(created_at, 1, 7) as month, COUNT(*) as count, SUM(total_amount) as total 
+         FROM invoices WHERE user_id = ? GROUP BY SUBSTR(created_at, 1, 7) ORDER BY month DESC LIMIT 6`;
+
+    const monthlyData = await db.all(monthlyQuery, [userId]);
 
     res.json({
       totalInvoices: totalInvoicesRes.count || 0,

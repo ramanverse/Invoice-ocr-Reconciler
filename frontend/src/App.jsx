@@ -114,19 +114,8 @@ function AppContent() {
                 <span className="user-name-header">{user.name}</span>
               </div>
             )}
-            <div style={{
-              background: 'rgba(239, 68, 68, 0.1)',
-              border: '1px solid rgba(239, 68, 68, 0.2)',
-              borderRadius: 12,
-              padding: '8px 16px',
-              fontSize: 13,
-              color: 'var(--accent-primary)',
-              fontWeight: 700,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-            }}>
-              <Zap size={14} fill="var(--accent-primary)" />
+            <div className="pro-badge">
+              <Zap size={14} fill="white" />
               PRO OCR ACTIVE
             </div>
           </div>

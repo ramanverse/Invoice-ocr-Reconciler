@@ -526,6 +526,52 @@ body::before {
   color: var(--accent-red);
 }
 
+/* ─── Premium Pro Badge ──────────────────────────────────────────────────── */
+.pro-badge {
+  background: linear-gradient(135deg, var(--accent-primary), #B91C1C);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 8px 16px;
+  font-size: 13px;
+  color: white;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.2);
+  position: relative;
+  overflow: hidden;
+  cursor: default;
+  user-select: none;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.pro-badge::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(to bottom right,
+      transparent,
+      rgba(255, 255, 255, 0.1),
+      transparent);
+  transform: rotate(45deg);
+  animation: shimmer-fast 3s infinite;
+}
+
+@keyframes shimmer-fast {
+  0% {
+    transform: translateX(-150%) rotate(45deg);
+  }
+
+  100% {
+    transform: translateX(150%) rotate(45deg);
+  }
+}
+
 /* ─── Tables (Minimalist) ────────────────────────────────────────────────── */
 .table-container {
   overflow-x: auto;

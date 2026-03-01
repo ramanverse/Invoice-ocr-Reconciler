@@ -48,8 +48,8 @@ export const reconcileAPI = {
     run: (data) => API.post('/reconcile', data),
     link: (data) => API.post('/reconcile/link', data),
     history: () => API.get('/reconciliations'),
-    exportCSV: (sessionId) => `http://localhost:5001/api/report/${sessionId}/csv`,
-    exportPDF: (sessionId) => `http://localhost:5001/api/report/${sessionId}/pdf`,
+    exportCSV: (sessionId) => `${API.defaults.baseURL}/report/${sessionId}/csv`,
+    exportPDF: (sessionId) => `${API.defaults.baseURL}/report/${sessionId}/pdf`,
 };
 
 export const statsAPI = {

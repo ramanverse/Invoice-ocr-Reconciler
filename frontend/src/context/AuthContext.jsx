@@ -13,7 +13,7 @@ export const AuthProvider = ({ children }) => {
             if (token) {
                 try {
                     const res = await api.get('/auth/me');
-                    setUser(res.data);
+                    setUser(res);
                 } catch (err) {
                     console.error('Auth verification failed', err);
                     localStorage.removeItem('token');

@@ -173,7 +173,18 @@ const initializeDB = async () => {
     }
 
     await db.exec(compatSchema);
-    console.log('Database Schema Initialized');
+
+    // Add indexes for performance
+    const indexes = `
+      CREATE INDEX IF NOT EXISTS idx_invoices_user_id ON invoices(user_id);
+      CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status);
+      CREATE INDEX IF NOT EXISTS idx_reconciliation_results_invoice_id ON reconciliation_results(invoice_id);
+      CREATE INDEX IF NOT EXISTS idx_reconciliation_results_session_id ON reconciliation_results(session_id);
+      CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+    `;
+    await db.exec(indexes);
+
+    console.log('Database Schema Initialized with Indexes');
   } catch (err) {
     console.error('Database Initialization Failed:', err);
   }

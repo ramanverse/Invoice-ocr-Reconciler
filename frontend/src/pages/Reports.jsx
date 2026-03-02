@@ -34,7 +34,20 @@ export default function Reports() {
             .finally(() => setLoading(false));
     };
 
-    useEffect(() => { load(); }, []);
+    useEffect(() => {
+        let isMounted = true;
+        reconcileAPI.history()
+            .then(data => {
+                if (isMounted) setSessions(data);
+            })
+            .catch(() => {
+                if (isMounted) toast.error('Failed to load history');
+            })
+            .finally(() => {
+                if (isMounted) setLoading(false);
+            });
+        return () => { isMounted = false; };
+    }, []);
 
     const chartData = sessions.slice(0, 8).reverse().map(s => ({
         date: new Date(s.created_at).toLocaleDateString('en', { month: 'short', day: 'numeric' }),

@@ -231,19 +231,30 @@ app.get('/api/health', (req, res) => {
 app.get('/api/stats', protect, async (req, res) => {
   try {
     const userId = req.user.id;
-    const totalInvoicesRes = await db.get('SELECT COUNT(*) as count FROM invoices WHERE user_id = ?', [userId]);
-    const pendingInvoicesRes = await db.get("SELECT COUNT(*) as count FROM invoices WHERE status = 'pending' AND user_id = ?", [userId]);
-    const matchedInvoicesRes = await db.get("SELECT COUNT(*) as count FROM invoices WHERE status = 'matched' AND user_id = ?", [userId]);
-    const totalAmountRes = await db.get('SELECT SUM(total_amount) as sum FROM invoices WHERE user_id = ?', [userId]);
-    const sessionsRes = await db.get('SELECT COUNT(*) as count FROM reconciliation_sessions WHERE user_id = ?', [userId]);
-    const recentInvoices = await db.all('SELECT * FROM invoices WHERE user_id = ? ORDER BY created_at DESC LIMIT 5', [userId]);
 
-    const flaggedRes = await db.get(`
-      SELECT COUNT(*) as count 
-      FROM reconciliation_results rr
-      JOIN invoices i ON rr.invoice_id = i.id
-      WHERE i.user_id = ? AND rr.match_status != 'matched'
-    `, [userId]);
+    // Execute multiple independent queries in parallel
+    const [
+      totalInvoicesRes,
+      pendingInvoicesRes,
+      matchedInvoicesRes,
+      totalAmountRes,
+      sessionsRes,
+      flaggedRes,
+      recentInvoices
+    ] = await Promise.all([
+      db.get('SELECT COUNT(*) as count FROM invoices WHERE user_id = ?', [userId]),
+      db.get("SELECT COUNT(*) as count FROM invoices WHERE status = 'pending' AND user_id = ?", [userId]),
+      db.get("SELECT COUNT(*) as count FROM invoices WHERE status = 'matched' AND user_id = ?", [userId]),
+      db.get('SELECT SUM(total_amount) as sum FROM invoices WHERE user_id = ?', [userId]),
+      db.get('SELECT COUNT(*) as count FROM reconciliation_sessions WHERE user_id = ?', [userId]),
+      db.get(`
+        SELECT COUNT(*) as count 
+        FROM reconciliation_results rr
+        JOIN invoices i ON rr.invoice_id = i.id
+        WHERE i.user_id = ? AND rr.match_status != 'matched'
+      `, [userId]),
+      db.all('SELECT * FROM invoices WHERE user_id = ? ORDER BY created_at DESC LIMIT 5', [userId])
+    ]);
 
     // Cross-database compatible monthly data
     const isPostgres = !!process.env.DATABASE_URL;

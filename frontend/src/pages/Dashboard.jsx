@@ -53,9 +53,24 @@ const CustomTooltip = ({ active, payload, label }) => {
 export default function Dashboard() {
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    const fetchStats = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const data = await statsAPI.get();
+            setStats(data);
+        } catch (err) {
+            console.error('Error fetching dashboard stats:', err);
+            setError('Failed to load dashboard data. Please check your connection or try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        statsAPI.get().then(setStats).catch(console.error).finally(() => setLoading(false));
+        fetchStats();
     }, []);
 
     if (loading) {
@@ -72,6 +87,19 @@ export default function Dashboard() {
                         </div>
                     ))}
                 </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="error-state-container" style={{ padding: '60px 20px', textAlign: 'center' }}>
+                <div style={{ fontSize: 48, marginBottom: 20 }}>⚠️</div>
+                <h3 style={{ marginBottom: 16, color: 'var(--text-primary)' }}>Dashboard Unreachable</h3>
+                <p style={{ color: 'var(--text-muted)', maxWidth: 400, margin: '0 auto 24px' }}>{error}</p>
+                <button className="btn btn-primary" onClick={fetchStats}>
+                    <Zap size={16} /> Try Again
+                </button>
             </div>
         );
     }

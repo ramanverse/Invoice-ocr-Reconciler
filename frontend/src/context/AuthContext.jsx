@@ -18,9 +18,12 @@ export const AuthProvider = ({ children }) => {
                     console.error('Auth verification failed', err);
                     localStorage.removeItem('token');
                     setUser(null);
+                } finally {
+                    setLoading(false);
                 }
+            } else {
+                setLoading(false);
             }
-            setLoading(false);
         };
         checkUser();
     }, []);
@@ -51,4 +54,5 @@ export const AuthProvider = ({ children }) => {
     );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => useContext(AuthContext);

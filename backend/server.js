@@ -219,6 +219,10 @@ app.get('/api/auth/me', protect, (req, res) => {
 // ─── Protected Routes (Health & Dashboard) ────────────────────────────────────
 
 // Health check
+app.get('/', (req, res) => {
+  res.send('🚀 Invoice OCR Backend is running!');
+});
+
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString(), version: '2.0.0' });
 });

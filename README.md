@@ -131,7 +131,7 @@ All detailed project documentation is centralized in the `docs/` directory:
 
 The application is deployed and accessible at:
 - **Frontend**: [invoice-ocr-reconciler.vercel.app](https://invoice-ocr-reconciler.vercel.app/)
-- **Backend**: [invoice-ocr-backend.onrender.com](https://invoice-ocr-backend.onrender.com/)
+- **Backend**: [invoice-ocr-backend-eq70.onrender.com](https://invoice-ocr-backend-eq70.onrender.com/)
 
 ---
 

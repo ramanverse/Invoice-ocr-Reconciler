@@ -1,3 +1,4 @@
+import React, { Suspense, lazy } from 'react';
 import { Routes, Route, NavLink, useLocation, Navigate } from 'react-router-dom';
 import {
   LayoutDashboard, Upload, FileText, GitMerge, BarChart2,
@@ -5,14 +6,22 @@ import {
 } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
-import Dashboard from './pages/Dashboard.jsx';
-import UploadInvoice from './pages/UploadInvoice.jsx';
-import InvoiceList from './pages/InvoiceList.jsx';
-import InvoiceDetail from './pages/InvoiceDetail.jsx';
-import Reconciliation from './pages/Reconciliation.jsx';
-import Reports from './pages/Reports.jsx';
-import Login from './pages/Login.jsx';
-import Signup from './pages/Signup.jsx';
+// Lazy load components
+const Dashboard = lazy(() => import('./pages/Dashboard.jsx'));
+const UploadInvoice = lazy(() => import('./pages/UploadInvoice.jsx'));
+const InvoiceList = lazy(() => import('./pages/InvoiceList.jsx'));
+const InvoiceDetail = lazy(() => import('./pages/InvoiceDetail.jsx'));
+const Reconciliation = lazy(() => import('./pages/Reconciliation.jsx'));
+const Reports = lazy(() => import('./pages/Reports.jsx'));
+const Login = lazy(() => import('./pages/Login.jsx'));
+const Signup = lazy(() => import('./pages/Signup.jsx'));
+
+// Loading Page
+const PageLoader = () => (
+  <div className="flex items-center justify-center p-20">
+    <Zap size={32} className="accent-text spin" />
+  </div>
+);
 
 const navItems = [
   { path: '/', icon: <LayoutDashboard size={18} />, label: 'Dashboard' },
@@ -127,15 +136,17 @@ function AppContent() {
         </header>
 
         <main className="page-content fade-in">
-          <Routes>
-            <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/upload" element={<ProtectedRoute><UploadInvoice /></ProtectedRoute>} />
-            <Route path="/invoices" element={<ProtectedRoute><InvoiceList /></ProtectedRoute>} />
-            <Route path="/invoices/:id" element={<ProtectedRoute><InvoiceDetail /></ProtectedRoute>} />
-            <Route path="/reconcile" element={<ProtectedRoute><Reconciliation /></ProtectedRoute>} />
-            <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
-            <Route path="*" element={<Navigate to="/" />} />
-          </Routes>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="/upload" element={<ProtectedRoute><UploadInvoice /></ProtectedRoute>} />
+              <Route path="/invoices" element={<ProtectedRoute><InvoiceList /></ProtectedRoute>} />
+              <Route path="/invoices/:id" element={<ProtectedRoute><InvoiceDetail /></ProtectedRoute>} />
+              <Route path="/reconcile" element={<ProtectedRoute><Reconciliation /></ProtectedRoute>} />
+              <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+              <Route path="*" element={<Navigate to="/" />} />
+            </Routes>
+          </Suspense>
         </main>
       </div>
     </div>

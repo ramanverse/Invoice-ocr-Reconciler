@@ -170,21 +170,21 @@ export default function Dashboard() {
             <div className="stats-grid">
                 <StatCard
                     label="Draft Invoices"
-                    value={3} // Mocking the Dribbble sample categories
+                    value={0}
                     color="var(--text-muted)"
-                    trend="3 Invoices"
+                    trend="0 Invoices"
                 />
                 <StatCard
                     label="Unpaid Invoices"
                     value={stats?.pendingInvoices ?? 0}
                     color="var(--accent-yellow)"
-                    trend="22 Invoices"
+                    trend={`${stats?.pendingInvoices ?? 0} Invoices`}
                 />
                 <StatCard
                     label="Overdue Invoices"
-                    value={6}
+                    value={stats?.flaggedItems ?? 0}
                     color="var(--accent-red)"
-                    trend="Immediate action"
+                    trend={stats?.flaggedItems > 0 ? "Immediate action" : "No issues"}
                 />
                 <StatCard
                     label="Paid Invoices"

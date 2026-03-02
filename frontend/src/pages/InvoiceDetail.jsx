@@ -266,91 +266,107 @@ export default function InvoiceDetail() {
                                                 />
                                             </td>
                                             <td style={{ fontWeight: 600 }}>
-                                                <Field label="Vendor" value={invoice.vendor_name} icon={<Tag size={12} color="var(--accent-primary)" />} />
-                                                <Field label="Invoice #" value={invoice.invoice_number} icon={<Hash size={12} color="var(--accent-cyan)" />} />
-                                                <Field label="Invoice Date" value={invoice.invoice_date} icon={<Calendar size={12} color="var(--accent-yellow)" />} />
-                                                <Field label="Due Date" value={invoice.due_date} icon={<Calendar size={12} color="var(--accent-red)" />} />
-                                                <Field label="Subtotal" value={invoice.subtotal ? `$${Number(invoice.subtotal).toFixed(2)}` : null} icon={<DollarSign size={12} color="var(--accent-green)" />} />
-                                                <Field label="Tax" value={invoice.tax ? `$${Number(invoice.tax).toFixed(2)}` : null} icon={<DollarSign size={12} color="var(--accent-yellow)" />} />
-                                                <Field label="Total Amount" value={invoice.total_amount ? `$${Number(invoice.total_amount).toFixed(2)}` : null} icon={<DollarSign size={12} color="var(--accent-green)" />} />
-                                                <Field label="Currency" value={invoice.currency} icon={<Tag size={12} color="var(--accent-secondary)" />} />
-                                            </div>
+                                                ${(parseFloat(item.amount) || 0).toFixed(2)}
+                                            </td>
+                                            <td>
+                                                <button onClick={() => removeLineItem(i)} className="btn btn-icon btn-secondary btn-sm" style={{ color: 'var(--accent-red)' }}>
+                                                    <X size={14} />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 24 }}>
+                    <Field label="Vendor" value={invoice.vendor_name} icon={<Tag size={12} color="var(--accent-primary)" />} />
+                    <Field label="Invoice #" value={invoice.invoice_number} icon={<Hash size={12} color="var(--accent-cyan)" />} />
+                    <Field label="Invoice Date" value={invoice.invoice_date} icon={<Calendar size={12} color="var(--accent-yellow)" />} />
+                    <Field label="Due Date" value={invoice.due_date} icon={<Calendar size={12} color="var(--accent-red)" />} />
+                    <Field label="Subtotal" value={invoice.subtotal ? `$${Number(invoice.subtotal).toFixed(2)}` : null} icon={<DollarSign size={12} color="var(--accent-green)" />} />
+                    <Field label="Tax" value={invoice.tax ? `$${Number(invoice.tax).toFixed(2)}` : null} icon={<DollarSign size={12} color="var(--accent-yellow)" />} />
+                    <Field label="Total Amount" value={invoice.total_amount ? `$${Number(invoice.total_amount).toFixed(2)}` : null} icon={<DollarSign size={12} color="var(--accent-green)" />} />
+                    <Field label="Currency" value={invoice.currency} icon={<Tag size={12} color="var(--accent-secondary)" />} />
+                </div>
             )}
 
-                                            {/* Line Items */}
-                                            {invoice.line_items?.length > 0 && (
-                                                <div className="card mb-6">
-                                                    <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>Line Items</div>
-                                                    <div className="table-container">
-                                                        <table>
-                                                            <thead>
-                                                                <tr>
-                                                                    <th>Description</th>
-                                                                    <th>Qty</th>
-                                                                    <th>Unit Price</th>
-                                                                    <th>Amount</th>
-                                                                </tr>
-                                                            </thead>
-                                                            <tbody>
-                                                                {invoice.line_items.map((item, i) => (
-                                                                    <tr key={i}>
-                                                                        <td className="primary">{item.description}</td>
-                                                                        <td>{item.quantity}</td>
-                                                                        <td>${Number(item.unit_price || 0).toFixed(2)}</td>
-                                                                        <td style={{ fontWeight: 600 }}>${Number(item.amount || 0).toFixed(2)}</td>
-                                                                    </tr>
-                                                                ))}
-                                                            </tbody>
-                                                        </table>
-                                                    </div>
-                                                </div>
-                                            )}
+            {/* Line Items */}
+            {!editing && invoice.line_items?.length > 0 && (
+                <div className="card mb-6">
+                    <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>Line Items</div>
+                    <div className="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Description</th>
+                                    <th>Qty</th>
+                                    <th>Unit Price</th>
+                                    <th>Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {invoice.line_items.map((item, i) => (
+                                    <tr key={i}>
+                                        <td className="primary">{item.description}</td>
+                                        <td>{item.quantity}</td>
+                                        <td>${Number(item.unit_price || 0).toFixed(2)}</td>
+                                        <td style={{ fontWeight: 600 }}>${Number(item.amount || 0).toFixed(2)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
 
-                                            {/* Reconciliation Result */}
-                                            {invoice.reconciliation && (
-                                                <div className="card mb-6" style={{
-                                                    border: `1px solid ${statusInfo.color}30`,
-                                                    background: statusInfo.bg,
-                                                }}>
-                                                    <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 12 }}>Reconciliation Result</div>
-                                                    <div style={{ fontSize: 14, display: 'grid', gap: 8 }}>
-                                                        <div><span style={{ color: 'var(--text-muted)' }}>Status: </span><span style={{ color: statusInfo.color, fontWeight: 700 }}>{invoice.reconciliation.match_status?.toUpperCase()}</span></div>
-                                                        <div><span style={{ color: 'var(--text-muted)' }}>Confidence: </span><span style={{ fontWeight: 600 }}>{invoice.reconciliation.confidence_score}%</span></div>
-                                                        {invoice.reconciliation.discrepancy > 0 && (
-                                                            <div><span style={{ color: 'var(--text-muted)' }}>Discrepancy: </span><span style={{ color: 'var(--accent-red)', fontWeight: 600 }}>${Number(invoice.reconciliation.discrepancy).toFixed(2)}</span></div>
-                                                        )}
-                                                        {invoice.reconciliation.flag_reason && (
-                                                            <div style={{ background: 'rgba(0,0,0,0.2)', padding: 12, borderRadius: 8, fontSize: 13 }}>
-                                                                <strong>Flag Reason:</strong> {invoice.reconciliation.flag_reason}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            )}
+            {/* Reconciliation Result */}
+            {invoice.reconciliation && (
+                <div className="card mb-6" style={{
+                    border: `1px solid ${statusInfo.color}30`,
+                    background: statusInfo.bg,
+                }}>
+                    <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 12 }}>Reconciliation Result</div>
+                    <div style={{ fontSize: 14, display: 'grid', gap: 8 }}>
+                        <div><span style={{ color: 'var(--text-muted)' }}>Status: </span><span style={{ color: statusInfo.color, fontWeight: 700 }}>{invoice.reconciliation.match_status?.toUpperCase()}</span></div>
+                        <div><span style={{ color: 'var(--text-muted)' }}>Confidence: </span><span style={{ fontWeight: 600 }}>{invoice.reconciliation.confidence_score}%</span></div>
+                        {invoice.reconciliation.discrepancy > 0 && (
+                            <div><span style={{ color: 'var(--text-muted)' }}>Discrepancy: </span><span style={{ color: 'var(--accent-red)', fontWeight: 600 }}>${Number(invoice.reconciliation.discrepancy).toFixed(2)}</span></div>
+                        )}
+                        {invoice.reconciliation.flag_reason && (
+                            <div style={{ background: 'rgba(0,0,0,0.2)', padding: 12, borderRadius: 8, fontSize: 13 }}>
+                                <strong>Flag Reason:</strong> {invoice.reconciliation.flag_reason}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
 
-                                            {/* Raw OCR Text */}
-                                            {invoice.ocr_raw_text && (
-                                                <details className="card">
-                                                    <summary style={{ cursor: 'pointer', fontWeight: 600, fontSize: 14, color: 'var(--text-secondary)' }}>
-                                                        📝 View Raw OCR Text
-                                                    </summary>
-                                                    <pre style={{
-                                                        marginTop: 16,
-                                                        padding: 16,
-                                                        background: 'rgba(0,0,0,0.3)',
-                                                        borderRadius: 8,
-                                                        fontSize: 12,
-                                                        fontFamily: 'JetBrains Mono, monospace',
-                                                        color: 'var(--text-muted)',
-                                                        overflow: 'auto',
-                                                        maxHeight: 300,
-                                                        whiteSpace: 'pre-wrap',
-                                                        lineHeight: 1.6,
-                                                    }}>
-                                                        {invoice.ocr_raw_text}
-                                                    </pre>
-                                                </details>
-                                            )}
-                                        </div>
-                                    );
+            {/* Raw OCR Text */}
+            {invoice.ocr_raw_text && (
+                <details className="card">
+                    <summary style={{ cursor: 'pointer', fontWeight: 600, fontSize: 14, color: 'var(--text-secondary)' }}>
+                        📝 View Raw OCR Text
+                    </summary>
+                    <pre style={{
+                        marginTop: 16,
+                        padding: 16,
+                        background: 'rgba(0,0,0,0.3)',
+                        borderRadius: 8,
+                        fontSize: 12,
+                        fontFamily: 'JetBrains Mono, monospace',
+                        color: 'var(--text-muted)',
+                        overflow: 'auto',
+                        maxHeight: 300,
+                        whiteSpace: 'pre-wrap',
+                        lineHeight: 1.6,
+                    }}>
+                        {invoice.ocr_raw_text}
+                    </pre>
+                </details>
+            )}
+        </div>
+    );
 }

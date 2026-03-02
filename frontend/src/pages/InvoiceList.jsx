@@ -199,7 +199,7 @@ export default function InvoiceList() {
                                         <td className="primary">{inv.vendor_name || '—'}</td>
                                         <td className="mono">{inv.invoice_number || '—'}</td>
                                         <td>{inv.invoice_date || '—'}</td>
-                                        <td style={{ fontWeight: 600 }}>${(inv.total_amount || 0).toFixed(2)}</td>
+                                        <td style={{ fontWeight: 600 }}>${Number(inv.total_amount || 0).toFixed(2)}</td>
                                         <td style={{ fontSize: 12 }}>{inv.currency || 'USD'}</td>
                                         <td>
                                             <span className={`badge badge-${inv.status}`}>{inv.status}</span>

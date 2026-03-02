@@ -107,14 +107,28 @@ const uploadRegister = multer({
 
 // ─── Helper Functions ─────────────────────────────────────────────────────────
 
+let ocrWorker = null;
+async function getOCRWorker() {
+  if (ocrWorker) return ocrWorker;
+  console.log('🏗️ Initializing OCR Worker...');
+  const worker = await Tesseract.createWorker({
+    logger: m => console.log(`[OCR] ${m.status}: ${(m.progress * 100).toFixed(0)}%`),
+  });
+  await worker.loadLanguage('eng');
+  await worker.initialize('eng');
+  ocrWorker = worker;
+  return ocrWorker;
+}
+
 async function runOCR(filePath) {
   try {
-    const { data } = await Tesseract.recognize(filePath, 'eng', {
-      logger: () => { },
-    });
+    const worker = await getOCRWorker();
+    const { data } = await worker.recognize(filePath);
     return data.text || '';
   } catch (err) {
     console.error('OCR Error:', err.message);
+    // If worker fails, null it so it restarts next time
+    ocrWorker = null;
     return '';
   }
 }

@@ -52,6 +52,7 @@ export default function UploadInvoice() {
     const clearAll = () => { setFiles([]); setResults([]); };
 
     const handleUpload = async () => {
+        if (uploading || files.length === 0) return;
         if (files.length === 0) return toast.error('Please select at least one file');
         setUploading(true);
         setProgress(0);
@@ -216,7 +217,7 @@ export default function UploadInvoice() {
                                             { label: 'Vendor', value: r.extracted.vendor_name },
                                             { label: 'Invoice #', value: r.extracted.invoice_number },
                                             { label: 'Date', value: r.extracted.invoice_date },
-                                            { label: 'Total', value: r.extracted.total_amount ? `$${r.extracted.total_amount.toFixed(2)}` : '—' },
+                                            { label: 'Total', value: r.extracted.total_amount ? `$${Number(r.extracted.total_amount).toFixed(2)}` : '—' },
                                         ].map(({ label, value }) => (
                                             <div key={label} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '6px 10px' }}>
                                                 <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>{label}</div>

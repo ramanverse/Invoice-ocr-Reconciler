@@ -19,8 +19,10 @@ const Signup = () => {
             await register(name, email, password);
             toast.success('Account created successfully!');
             navigate('/dashboard');
-        } catch {
-            toast.error('Failed to sign up');
+        } catch (err) {
+            const message = err.error || err.message || 'Failed to sign up';
+            toast.error(message);
+            console.error('Signup error:', err);
         } finally {
             setIsLoading(false);
         }
